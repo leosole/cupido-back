@@ -1,0 +1,120 @@
+org: leosole
+app: cupido
+service: cupido-back
+variablesResolutionMode: 20210326
+frameworkVersion: ">=2.40.0"
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  stage: dev
+  region: sa-east-1
+  lambdaHashingVersion: 20201221
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+
+plugins:
+  - serverless-step-functions
+
+functions:
+  create:
+    handler: todos/create.create
+    events:
+      - http:
+          path: todos/save
+          method: post
+          cors: true
+
+  send:
+    handler: todos/send.send
+  #   events:
+  #     - http:
+  #         path: todos/send
+  #         method: post
+  #         cors: true
+
+  list:
+    handler: todos/list.list
+    events:
+      - http:
+          path: todos/email/{email}
+          method: get
+          cors: true
+
+  # get:
+  #   handler: todos/get.get
+  #   events:
+  #     - http:
+  #         path: todos/message/{id}
+  #         method: get
+  #         cors: true
+
+  # newmessage:
+  #   handler: todos/newmessage.newmessage
+  #   events:
+  #     - http:
+  #         path: todos/
+  #         method: post
+  #         cors: true
+
+# stepFunctions:
+#   stateMachines:
+#     newmessage:
+#       # type: EXPRESS
+#       # events:
+#       #   - http:
+#       #       path: todos
+#       #       method: POST
+#       #       cors: true
+#       name: newMessageStates
+#       definition:
+#         Comment: "Nova mensagem inserida"
+#         StartAt: SaveMessage
+#         States:
+#           SaveMessage:
+#             Type: Task
+#             Resource: arn:aws:lambda:sa-east-1:661781056568:function:cupido-back-dev-create
+#             InputPath: $
+#             Next: SendMessage
+#           SendMessage:
+#             Type: Task
+#             Resource: arn:aws:lambda:sa-east-1:661781056568:function:cupido-back-dev-send
+#             InputPath: $
+#             ResultPath: $.res
+#             End: true
+
+#       role: arn:aws:iam::661781056568:role/service-role/StepFunctions-Catchfailure-role-fe1f284c
+      
+
+resources:
+  Resources:
+    TodosDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: id
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+
+  
